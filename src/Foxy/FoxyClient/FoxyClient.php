@@ -146,6 +146,15 @@ class FoxyClient
         return $this->client_secret;
     }
 
+    public function setUseSandbox($use_sandbox)
+    {
+        $this->use_sandbox = $use_sandbox;
+    }
+    public function getUseSandbox()
+    {
+        return $this->use_sandbox;
+    }
+
     public function getApiHome()
     {
         return $this->use_sandbox ? static::SANDBOX_API_HOME : static::PRODUCTION_API_HOME;
