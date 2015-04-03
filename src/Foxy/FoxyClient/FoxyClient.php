@@ -60,6 +60,7 @@ class FoxyClient
     private $links = array();
     private $use_sandbox = false;
     private $obtaining_updated_access_token = false;
+    private $include_auth_header = true;
 
     public function __construct(\GuzzleHttp\Client $guzzle, array $config = null)
     {
@@ -254,7 +255,7 @@ class FoxyClient
         $headers = array(
             'FOXY-API-VERSION' => 1
         );
-        if ($this->access_token) {
+        if ($this->access_token && $this->include_auth_header) {
             $headers['Authorization'] = "Bearer " . $this->access_token;
         }
         return $headers;
@@ -268,32 +269,36 @@ class FoxyClient
 
     public function refreshTokenAsNeeded()
     {
-        if ($this->client_id || $this->client_secret) {
+        if ($this->client_id && $this->client_secret && $this->refresh_token) {
             if (!isset($this->access_token_expires) || ($this->access_token_expires - 30) < time()) {
-                $this->obtaining_updated_access_token = true;
                 $refresh_token_data = array(
                         'grant_type' => 'refresh_token',
                         'refresh_token' => $this->refresh_token,
                         'client_id' => $this->client_id,
                         'client_secret' => $this->client_secret
                 );
+                $this->obtaining_updated_access_token = true;
+                $this->include_auth_header = false;
                 $data = $this->post($this->getOAuthTokenEndpoint(),$refresh_token_data);
+                $this->obtaining_updated_access_token = false;
+                $this->include_auth_header = true;
                 if ($this->getLastStatusCode() == '200') {
                     $this->access_token_expires = time() + $data['expires_in']; 
                     $this->access_token = $data['access_token'];
                 }
-                $this->obtaining_updated_access_token = false;
             }
         }
     }
 
     public function getOAuthTokenEndpoint()
     {
-        if (!isset($oauth_token_endpoint)) {
+        if ($this->oauth_token_endpoint == '') {
+            $this->include_auth_header = false;
             $resp = $this->get();
-            $oauth_token_endpoint = $this->getLink("fx:token");
+            $this->include_auth_header = true;
+            $this->oauth_token_endpoint = $this->getLink("fx:token");
         }
-        return $oauth_token_endpoint;
+        return $this->oauth_token_endpoint;
     }
 
 
