@@ -2,8 +2,13 @@
     "name": "foxycart/foxyclient",
     "description": "FoxyClient - a PHP Guzzle based API Client for working with the Foxy Hypermedia API ",
     "type": "library",
-    "homepage": "https://github.com/FoxyCart/foxyclient",
+    "homepage": "https://github.com/FoxyCart/foxyclient-php",
     "version": "0.1.0",
+    "source": {
+        "url": "git@github.com:FoxyCart/foxyclient-php.git",
+        "type": "git",
+        "reference": "master"
+    },
     "require": {
         "guzzlehttp/guzzle": "~5.2",
         "guzzlehttp/cache-subscriber": "0.1.*@dev",

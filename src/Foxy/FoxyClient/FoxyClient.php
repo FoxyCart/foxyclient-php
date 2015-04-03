@@ -28,6 +28,8 @@ class FoxyClient
 {
     const PRODUCTION_API_HOME = 'https://api.foxycart.com';
     const SANDBOX_API_HOME = 'https://api-sandbox.foxycart.com';
+    const PRODUCTION_AUTHORIZATION_ENDPOINT = 'https://my.foxycart.com/authorize';
+    const SANDBOX_AUTHORIZATION_ENDPOINT = 'https://my-sandbox.foxycart.com/authorize';
 
     /**
     * OAuth Access Token (can have various scopes such as client_full_access, user_full_access, store_full_access)
@@ -160,6 +162,11 @@ class FoxyClient
         return $this->use_sandbox ? static::SANDBOX_API_HOME : static::PRODUCTION_API_HOME;
     }
 
+    public function getAuthorizationEndpoint()
+    {
+        return $this->use_sandbox ? static::SANDBOX_AUTHORIZATION_ENDPOINT : static::PRODUCTION_AUTHORIZATION_ENDPOINT;
+    }
+
     public function get($uri = "", $post = null)
     {
         return $this->go('GET', $uri, $post);
@@ -183,6 +190,11 @@ class FoxyClient
     public function options($uri, $post = null)
     {
         return $this->go('OPTIONS', $uri, $post);
+    }
+
+    public function head($uri, $post = null)
+    {
+        return $this->go('HEAD', $uri, $post);
     }
 
     private function go($method, $uri, $post)
@@ -220,6 +232,11 @@ class FoxyClient
             $this->last_status_code = $api_response->getStatusCode();
             $data = $api_response->json();
             $this->saveLinks($data);
+            if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
+                // we should have gotten a refresh token... looks like our access_token_expires was incorrect.
+                $this->access_token_expires = 0;
+                return $this->go($method, $uri, $post); // try again
+            }
             return $data;
 
         //Catch Errors - http error
@@ -248,10 +265,10 @@ class FoxyClient
 
 
     //Get a link out of the internally stored links
-    public function getLink($str)
+    public function getLink($link_rel_string)
     {
-        $search_string = $str;
-        if (!in_array($str, $this->registered_link_relations) && strpos($str, "fx:") === FALSE) {
+        $search_string = $link_rel_string;
+        if (!in_array($link_rel_string, $this->registered_link_relations) && strpos($link_rel_string, "fx:") === FALSE) {
             $search_string = 'fx:' . $search_string;
         }
         if (isset($this->links[$search_string])) {
@@ -280,6 +297,14 @@ class FoxyClient
         return $errors;
     }
 
+    public function hasExpiredAccessTokenError($data)
+    {
+        $errors = $this->getErrors($data);
+        if (in_array('The access token provided has expired', $errors)) {
+            return true;
+        }
+        return false;
+    }
 
     //Get headers for this call
     public function getHeaders()
@@ -299,27 +324,87 @@ class FoxyClient
         return $this->last_status_code;
     }
 
+    public function hasOAuthCredentialsForTokenRefresh()
+    {
+        return ($this->client_id && $this->client_secret && $this->refresh_token);
+    }
+
+    public function accessTokenNeedsRefreshing()
+    {
+        return (!$this->access_token_expires || ($this->access_token_expires - 30) < time());
+    }
+
+    public function shouldRefreshToken()
+    {
+        return ($this->hasOAuthCredentialsForTokenRefresh() && $this->accessTokenNeedsRefreshing());
+    }
+
+    public function obtainingToken()
+    {
+        $this->obtaining_updated_access_token = true;
+        $this->include_auth_header = false;
+    }
+
+    public function obtainingTokenDone()
+    {
+        $this->obtaining_updated_access_token = false;
+        $this->include_auth_header = true;
+    }
+
     public function refreshTokenAsNeeded()
     {
-        if ($this->client_id && $this->client_secret && $this->refresh_token) {
-            if (!$this->access_token_expires || ($this->access_token_expires - 30) < time()) {
-                $refresh_token_data = array(
-                        'grant_type' => 'refresh_token',
-                        'refresh_token' => $this->refresh_token,
-                        'client_id' => $this->client_id,
-                        'client_secret' => $this->client_secret
-                );
-                $this->obtaining_updated_access_token = true;
-                $this->include_auth_header = false;
-                $data = $this->post($this->getOAuthTokenEndpoint(),$refresh_token_data);
-                $this->obtaining_updated_access_token = false;
-                $this->include_auth_header = true;
-                if ($this->getLastStatusCode() == '200') {
-                    $this->access_token_expires = time() + $data['expires_in'];
-                    $this->access_token = $data['access_token'];
-                }
+        if ($this->shouldRefreshToken()) {
+            $refresh_token_data = array(
+                    'grant_type' => 'refresh_token',
+                    'refresh_token' => $this->refresh_token,
+                    'client_id' => $this->client_id,
+                    'client_secret' => $this->client_secret
+            );
+            $this->obtainingToken();
+            $data = $this->post($this->getOAuthTokenEndpoint(),$refresh_token_data);
+            $this->obtainingTokenDone();
+            if ($this->getLastStatusCode() == '200') {
+                $this->access_token_expires = time() + $data['expires_in'];
+                $this->access_token = $data['access_token'];
             }
         }
+    }
+
+    public function getAccessTokenFromClientCredentials()
+    {
+        $client_credentials_request_data = array(
+                'grant_type' => 'client_credentials',
+                'scope' => 'client_full_access',
+                'client_id' => $this->client_id,
+                'client_secret' => $this->client_secret
+        );
+        $this->obtainingToken();
+        $data = $this->post($this->getOAuthTokenEndpoint(),$client_credentials_request_data);
+        $this->obtainingTokenDone();
+        if ($this->getLastStatusCode() == '200') {
+            $this->access_token_expires = time() + $data['expires_in'];
+            $this->access_token = $data['access_token'];
+        }
+        return $data;
+    }
+
+    public function getAccessTokenFromAuthorizationCode($code)
+    {
+        $authorize_code_request_data = array(
+                'grant_type' => 'authorization_code',
+                'code' => $code,
+                'client_id' => $this->client_id,
+                'client_secret' => $this->client_secret
+        );
+        $this->obtainingToken();
+        $data = $this->post($this->getOAuthTokenEndpoint(),$authorize_code_request_data);
+        $this->obtainingTokenDone();
+        if ($this->getLastStatusCode() == '200') {
+            $this->access_token_expires = time() + $data['expires_in'];
+            $this->access_token = $data['access_token'];
+            $this->refresh_token = $data['refresh_token'];
+        }
+        return $data;
     }
 
     public function getOAuthTokenEndpoint()
