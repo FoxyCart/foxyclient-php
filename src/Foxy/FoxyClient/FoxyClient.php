@@ -54,7 +54,6 @@ class FoxyClient
     */
     private $client_secret = '';
     private $guzzle;
-    private $method = '';
     private $last_status_code = '';
     private $registered_link_relations = array('self', 'first', 'prev', 'next', 'last');
     private $links = array();
@@ -62,9 +61,14 @@ class FoxyClient
     private $obtaining_updated_access_token = false;
     private $include_auth_header = true;
 
-    public function __construct(\GuzzleHttp\Client $guzzle, array $config = null)
+    public function __construct(\GuzzleHttp\Client $guzzle, array $config = array())
     {
         $this->guzzle = $guzzle;
+        $this->updateFromConfig($config);
+    }
+
+    public function updateFromConfig($config)
+    {
         if (array_key_exists('use_sandbox', $config)) {
             $this->use_sandbox = $config['use_sandbox'];
         }
@@ -83,6 +87,18 @@ class FoxyClient
         if (array_key_exists('client_secret', $config)) {
             $this->client_secret = $config['client_secret'];
         }
+    }
+
+    public function clearCredentials()
+    {
+        $config = array(
+            'access_token' => '',
+            'access_token_expires' => '',
+            'refresh_token' => '',
+            'client_id' => '',
+            'client_secret' => ''
+        );
+        $this->updateFromConfig($config);
     }
 
     public function setAccessToken($access_token)
@@ -137,35 +153,30 @@ class FoxyClient
 
     public function get($uri = "", $post = null)
     {
-        $this->method = "GET";
-        return $this->go($uri, $post);
+        return $this->go('GET', $uri, $post);
     }
 
     public function post($uri, $post = null)
     {
-        $this->method = "POST";
-        return $this->go($uri, $post);
+        return $this->go('POST', $uri, $post);
     }
 
     public function patch($uri, $post = null)
     {
-        $this->method = "PATCH";
-        return $this->go($uri, $post);
+        return $this->go('PATCH', $uri, $post);
     }
 
     public function delete($uri, $post = null)
     {
-        $this->method = "DELETE";
-        return $this->go($uri, $post);
+        return $this->go('DELETE', $uri, $post);
     }
 
     public function options($uri, $post = null)
     {
-        $this->method = "OPTIONS";
-        return $this->go($uri, $post);
+        return $this->go('OPTIONS', $uri, $post);
     }
 
-    private function go($uri, $post)
+    private function go($method, $uri, $post)
     {
         if ($this->access_token && !$this->obtaining_updated_access_token) {
             $this->refreshTokenAsNeeded();
@@ -187,18 +198,31 @@ class FoxyClient
         );
 
         //Set Query or Body
-        if ($this->method === "GET" && $post !== null) {
+        if ($method === "GET" && $post !== null) {
             $guzzle_args['query'] = $post;
         } elseif ($post !== null) {
             $guzzle_args['body'] = $post;
         }
 
-        $api_request = $this->guzzle->createRequest($this->method, $uri, $guzzle_args);
-        $api_response = $this->guzzle->send($api_request);
-        $this->last_status_code = $api_response->getStatusCode();
-        $data = $api_response->json();
-        $this->saveLinks($data);
-        return $data;
+        try {
+
+            $api_request = $this->guzzle->createRequest($method, $uri, $guzzle_args);
+            $api_response = $this->guzzle->send($api_request);
+            $this->last_status_code = $api_response->getStatusCode();
+            $data = $api_response->json();
+            $this->saveLinks($data);
+            return $data;
+
+        //Catch Errors - http error
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $this->last_status_code = 500;
+            return array("status" => "error", "message" => $e->getMessage());
+
+        //Catch Errors - not JSON
+        } catch (\GuzzleHttp\Exception\ParseException $e) {
+            return array("status" => "error", "message" => $e->getMessage());
+        }
+
     }
 
 
