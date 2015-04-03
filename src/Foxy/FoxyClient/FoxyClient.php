@@ -36,7 +36,7 @@ class FoxyClient
     /**
     * The timestamp for when the access token expires
     */
-    private $access_token_expires = '';
+    private $access_token_expires = 0;
     /**
     * OAuth Refresh token used to obtain a new Access Token
     */
@@ -187,7 +187,7 @@ class FoxyClient
 
     private function go($method, $uri, $post)
     {
-        if ($this->access_token && !$this->obtaining_updated_access_token) {
+        if (!$this->obtaining_updated_access_token) {
             $this->refreshTokenAsNeeded();
         }
 
@@ -262,23 +262,22 @@ class FoxyClient
     }
 
 
-    //See if there were any errors
-    public function checkForErrors($data)
+    //Return any errors that exist in the response data.
+    public function getErrors($data)
     {
+        $errors = array();
         if ($this->last_status_code >= 400) {
             if (isset($data['error_description'])) {
-                return array($data['error_description']);
+                $errors[] = $data['error_description'];
             } elseif (isset($data['_embedded']['fx:errors'])) {
-                $errors = array();
                 foreach ($data['_embedded']['fx:errors'] as $error) {
                     $errors[] = $error['message'];
                 }
-                return $errors;
             } else {
-                return array("No data returned.");
+                $errors[] = 'No data returned.';
             }
         }
-        return false;
+        return $errors;
     }
 
 
@@ -303,7 +302,7 @@ class FoxyClient
     public function refreshTokenAsNeeded()
     {
         if ($this->client_id && $this->client_secret && $this->refresh_token) {
-            if (!isset($this->access_token_expires) || ($this->access_token_expires - 30) < time()) {
+            if (!$this->access_token_expires || ($this->access_token_expires - 30) < time()) {
                 $refresh_token_data = array(
                         'grant_type' => 'refresh_token',
                         'refresh_token' => $this->refresh_token,
@@ -316,7 +315,7 @@ class FoxyClient
                 $this->obtaining_updated_access_token = false;
                 $this->include_auth_header = true;
                 if ($this->getLastStatusCode() == '200') {
-                    $this->access_token_expires = time() + $data['expires_in']; 
+                    $this->access_token_expires = time() + $data['expires_in'];
                     $this->access_token = $data['access_token'];
                 }
             }
