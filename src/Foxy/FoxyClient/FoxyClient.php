@@ -17,7 +17,14 @@ $result = $fc->get();
 die("<pre>" . print_r($result, 1) . "</pre>");
 
 //Get Authenticated Store
-$fc = new FoxyClient($guzzle, array($access_token));
+$fc = new FoxyClient($guzzle, array(
+        'client_id' => $client_id,
+        'client_secret' => $client_secret,
+        'refresh_token' => $refresh_token,
+        'access_token' => $access_token, // optional
+        'access_token_expires' => $access_token_expires // optional
+    )
+);
 $fc->get();
 $result = $fc->get($fc->getLink("fx:store"));
 die("<pre>" . print_r($result, 1) . "</pre>");
@@ -242,11 +249,11 @@ class FoxyClient
         //Catch Errors - http error
         } catch (\GuzzleHttp\Exception\RequestException $e) {
             $this->last_status_code = 500;
-            return array("status" => "error", "message" => $e->getMessage());
+            return array("error_description" => $e->getMessage());
 
         //Catch Errors - not JSON
         } catch (\GuzzleHttp\Exception\ParseException $e) {
-            return array("status" => "error", "message" => $e->getMessage());
+            return array("error_description" => $e->getMessage());
         }
 
     }
@@ -412,8 +419,10 @@ class FoxyClient
         if ($this->oauth_token_endpoint == '') {
             $this->include_auth_header = false;
             $resp = $this->get();
-            $this->include_auth_header = true;
-            $this->oauth_token_endpoint = $this->getLink("fx:token");
+            if ($this->getLastStatusCode() == '200') {
+                $this->include_auth_header = true;
+                $this->oauth_token_endpoint = $this->getLink("fx:token");
+            }
         }
         return $this->oauth_token_endpoint;
     }
