@@ -37,6 +37,6 @@ FoxyClient supports all HTTP methods for our Hypermedia API. It also automatical
  * getErrors($data): Given a response payload, it will normalize errors and return an array of them (or any empty array).
  * getLastStatusCode(): Returns the last HTTP status code.
  * getAuthorizationEndpoint(): The <a href="https://tools.ietf.org/html/rfc6749#section-4.1">Authorization Code Grant</a> server endpoint url. You'll need to forward users to this to let them grant your application access to their store or user.
- * getOAuthTokenEndpoint(): The OAuth token endpoint. Note: you shouldn't have to use this as the library takes care of all AOuth functionality for you.
+ * getOAuthTokenEndpoint(): The OAuth token endpoint. Note: you shouldn't have to use this as the library takes care of all OAuth functionality for you.
  * getAccessTokenFromAuthorizationCode($code): Used when returning from our Authorization server in order to obtain an access_token and refresh_token.
 
