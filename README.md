@@ -15,6 +15,10 @@ As mentioned above, begin by getting familiar with <a href="https://github.com/F
 
 FoxyClient supports all HTTP methods for our Hypermedia API. It also automatically handles OAuth token refreshes and handles authorization code grants. It does not specify a persistance layer for storing OAuth tokens so you can implement that however you want. You can also support a static service with no database which would only use the client_id, client_secret, and refresh_token to obtain a new access_token as needed.
 
+## See Also
+
+Along with the <a href="https://github.com/FoxyCart/foxyclient-php-example">example code</a>, we'll also be adding to the <a href="https://github.com/FoxyCart/foxyclient-php-playground">playground</a> for more examples of how to use the client. It currently demonstrates how to work with coupons: https://github.com/FoxyCart/foxyclient-php-playground
+
 ### Config Options
  * use_sandbox: Set to true to work with https://api-sandbox.foxycart.com. This is highly recomended when first getting familiar with the system.
  * client_id: Your OAuth Client id.
