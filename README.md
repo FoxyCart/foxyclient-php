@@ -45,4 +45,5 @@ Along with the <a href="https://github.com/FoxyCart/foxyclient-php-example">exam
  * getAccessTokenFromAuthorizationCode($code): Used when returning from our Authorization server in order to obtain an access_token and refresh_token.
  * setAcceptContentType($accept_content_type): Set the Accept header content type used for the all future requests. All supported json content types on the FoxyCart API are supported such as application/hal+json and application/vnd.siren+json.
  * getAcceptContentType(): get the Accept header content type
+ * getLastResponseHeader($header): Get a header (such as "Location") from the previous response.
 

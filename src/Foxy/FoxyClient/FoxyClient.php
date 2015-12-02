@@ -64,7 +64,7 @@ class FoxyClient
     */
     private $client_secret = '';
     private $guzzle;
-    private $last_status_code = '';
+    private $last_response = '';
     private $registered_link_relations = array('self', 'first', 'prev', 'next', 'last');
     private $links = array();
     private $use_sandbox = false;
@@ -237,9 +237,8 @@ class FoxyClient
         try {
 
             $api_request = $this->guzzle->createRequest($method, $uri, $guzzle_args);
-            $api_response = $this->guzzle->send($api_request);
-            $this->last_status_code = $api_response->getStatusCode();
-            $data = $api_response->json();
+            $this->last_response = $this->guzzle->send($api_request);
+            $data = $this->last_response->json();
             $this->saveLinks($data);
             if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
                 // we should have gotten a refresh token... looks like our access_token_expires was incorrect.
@@ -250,7 +249,6 @@ class FoxyClient
 
         //Catch Errors - http error
         } catch (\GuzzleHttp\Exception\RequestException $e) {
-            $this->last_status_code = 500;
             return array("error_description" => $e->getMessage());
 
         //Catch Errors - not JSON
@@ -292,7 +290,7 @@ class FoxyClient
     public function getErrors($data)
     {
         $errors = array();
-        if ($this->last_status_code >= 400) {
+        if ($this->getLastStatusCode() >= 400) {
             if (isset($data['error_description'])) {
                 $errors[] = $data['error_description'];
             } elseif (isset($data['_embedded']['fx:errors'])) {
@@ -347,7 +345,12 @@ class FoxyClient
     //Get Last Status Code
     public function getLastStatusCode()
     {
-        return $this->last_status_code;
+        return $this->last_response->getStatusCode();
+    }
+    //Get Last Response Header
+    public function getLastResponseHeader($header)
+    {
+        return $this->last_response->getHeader($header);
     }
 
     public function hasOAuthCredentialsForTokenRefresh()
