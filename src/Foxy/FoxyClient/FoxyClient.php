@@ -37,6 +37,7 @@ class FoxyClient
     const SANDBOX_API_HOME = 'https://api-sandbox.foxycart.com';
     const PRODUCTION_AUTHORIZATION_ENDPOINT = 'https://my.foxycart.com/authorize';
     const SANDBOX_AUTHORIZATION_ENDPOINT = 'https://my-sandbox.foxycart.com/authorize';
+    const DEFAULT_ACCEPT_CONTENT_TYPE = 'application/hal+json';
 
     /**
     * OAuth Access Token (can have various scopes such as client_full_access, user_full_access, store_full_access)
@@ -69,6 +70,7 @@ class FoxyClient
     private $use_sandbox = false;
     private $obtaining_updated_access_token = false;
     private $include_auth_header = true;
+    private $accept_content_type = '';
 
     public function __construct(\GuzzleHttp\Client $guzzle, array $config = array())
     {
@@ -311,6 +313,21 @@ class FoxyClient
         return false;
     }
 
+    // Set a custom supported content type (application/hal+json, application/vnd.siren+json, etc)
+    public function setAcceptContentType($accept_content_type)
+    {
+        $this->accept_content_type = $accept_content_type;
+    }
+
+    public function getAcceptContentType()
+    {
+        if ($this->accept_content_type == '') {
+            return static::DEFAULT_ACCEPT_CONTENT_TYPE;
+        }
+
+        return $this->accept_content_type;
+    }
+
     //Get headers for this call
     public function getHeaders()
     {
@@ -320,6 +337,8 @@ class FoxyClient
         if ($this->access_token && $this->include_auth_header) {
             $headers['Authorization'] = "Bearer " . $this->access_token;
         }
+        $headers['Accept'] = $this->getAcceptContentType();
+
         return $headers;
     }
 
