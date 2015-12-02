@@ -43,4 +43,5 @@ Along with the <a href="https://github.com/FoxyCart/foxyclient-php-example">exam
  * getAuthorizationEndpoint(): The <a href="https://tools.ietf.org/html/rfc6749#section-4.1">Authorization Code Grant</a> server endpoint url. You'll need to forward users to this to let them grant your application access to their store or user.
  * getOAuthTokenEndpoint(): The OAuth token endpoint. Note: you shouldn't have to use this as the library takes care of all OAuth functionality for you.
  * getAccessTokenFromAuthorizationCode($code): Used when returning from our Authorization server in order to obtain an access_token and refresh_token.
+ * getLastResponseHeader($header): Get a header (such as "Location") from the previous response.
 
