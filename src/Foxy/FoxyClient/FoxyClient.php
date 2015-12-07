@@ -212,10 +212,6 @@ class FoxyClient
             $this->refreshTokenAsNeeded();
         }
 
-        if (!is_array($post)) {
-            $post = null;
-        }
-
         //Nothing passed in, set uri to homepage
         if (!$uri) {
             $uri = $this->getApiHome();
