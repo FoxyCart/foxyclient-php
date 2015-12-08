@@ -35,6 +35,7 @@ class FoxyClient
 {
     const PRODUCTION_API_HOME = 'https://api.foxycart.com';
     const SANDBOX_API_HOME = 'https://api-sandbox.foxycart.com';
+    const LINK_RELATIONSHIPS_BASE_URI = 'https://api.foxycart.com/rels/';
     const PRODUCTION_AUTHORIZATION_ENDPOINT = 'https://my.foxycart.com/authorize';
     const SANDBOX_AUTHORIZATION_ENDPOINT = 'https://my-sandbox.foxycart.com/authorize';
     const DEFAULT_ACCEPT_CONTENT_TYPE = 'application/hal+json';
@@ -254,33 +255,67 @@ class FoxyClient
 
     }
 
-
     //Save Links to the Object For Easy Retrieval Later
     public function saveLinks($data)
     {
-        if (!isset($data['_links'])) {
-            return;
-        }
-        foreach ($data['_links'] as $key => $val) {
-            $this->links[$key] = $val;
+        if (isset($data['_links'])) {
+            foreach ($data['_links'] as $rel => $link) {
+                if (!in_array($rel, $this->registered_link_relations)
+                    && $rel != 'curies'
+                    && $rel.'/' != static::LINK_RELATIONSHIPS_BASE_URI) {
+                    $this->links[$rel] = $link['href'];
+                }
+            }
+        } else if (isset($data['links'])) {
+            foreach ($data['links'] as $link) {
+                foreach ($link['rel'] as $rel) {
+                    if (!in_array($rel, $this->registered_link_relations)
+                        && $rel.'/' != static::LINK_RELATIONSHIPS_BASE_URI) {
+                        $this->links[$rel] = $link['href'];
+                    }
+                }
+            }
         }
     }
 
-
-    //Get a link out of the internally stored links
+    // Get a link out of the internally stored links
+    // The link relationship base uri can be excluded ("fx:" for HAL, full URI for Siren)
     public function getLink($link_rel_string)
     {
         $search_string = $link_rel_string;
-        if (!in_array($link_rel_string, $this->registered_link_relations) && strpos($link_rel_string, "fx:") === FALSE) {
-            $search_string = 'fx:' . $search_string;
+        if (!in_array($link_rel_string, $this->registered_link_relations)
+            && strpos($link_rel_string, "fx:") === FALSE
+            && strpos($link_rel_string, static::LINK_RELATIONSHIPS_BASE_URI) === FALSE) {
+                if ($this->getAcceptContentType() == static::DEFAULT_ACCEPT_CONTENT_TYPE) {
+                    $search_string = 'fx:' . $search_string;
+                } else {
+                    $search_string = static::LINK_RELATIONSHIPS_BASE_URI . $search_string;
+                }
         }
         if (isset($this->links[$search_string])) {
-            return $this->links[$search_string]['href'];
+            return $this->links[$search_string];
         } else {
             return "";
         }
     }
 
+    // Get stored links (excluding link rel base uri)
+    public function getLinks()
+    {
+        $links = array();
+        foreach($this->links as $rel => $href) {
+            $simple_rel = $rel;
+            $base_uris = array("fx:", static::LINK_RELATIONSHIPS_BASE_URI);
+            foreach($base_uris as $base_uri) {
+                $pos = strpos($simple_rel, $base_uri);
+                if ($pos !== FALSE && ($simple_rel.'/' != $base_uri)) {
+                    $simple_rel = substr($simple_rel, strlen($base_uri));
+                }
+            }
+            $links[$simple_rel] = $href;
+        }
+        return $links;
+    }
 
     //Return any errors that exist in the response data.
     public function getErrors($data)
@@ -439,7 +474,7 @@ class FoxyClient
             $resp = $this->get();
             if ($this->getLastStatusCode() == '200') {
                 $this->include_auth_header = true;
-                $this->oauth_token_endpoint = $this->getLink("fx:token");
+                $this->oauth_token_endpoint = $this->getLink("token");
             }
         }
         return $this->oauth_token_endpoint;
