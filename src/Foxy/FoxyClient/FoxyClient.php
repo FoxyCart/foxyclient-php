@@ -35,9 +35,13 @@ class FoxyClient
 {
     const PRODUCTION_API_HOME = 'https://api.foxycart.com';
     const SANDBOX_API_HOME = 'https://api-sandbox.foxycart.com';
+    // Internal Foxy Development Use Only
+    const LOCAL_API_HOME = 'https://api.foxy.dev';
     const LINK_RELATIONSHIPS_BASE_URI = 'https://api.foxycart.com/rels/';
     const PRODUCTION_AUTHORIZATION_ENDPOINT = 'https://my.foxycart.com/authorize';
     const SANDBOX_AUTHORIZATION_ENDPOINT = 'https://my-sandbox.foxycart.com/authorize';
+    // Internal Foxy Development Use Only
+    const LOCAL_AUTHORIZATION_ENDPOINT = 'https://my.foxy.dev:44300/authorize';
     const DEFAULT_ACCEPT_CONTENT_TYPE = 'application/hal+json';
 
     /**
@@ -69,6 +73,8 @@ class FoxyClient
     private $registered_link_relations = array('self', 'first', 'prev', 'next', 'last');
     private $links = array();
     private $use_sandbox = false;
+    // Internal Foxy Development Use Only
+    private $use_local = false;
     private $obtaining_updated_access_token = false;
     private $include_auth_header = true;
     private $accept_content_type = '';
@@ -81,6 +87,9 @@ class FoxyClient
 
     public function updateFromConfig($config)
     {
+        if (array_key_exists('use_local', $config)) {
+            $this->use_local = $config['use_local'];
+        }
         if (array_key_exists('use_sandbox', $config)) {
             $this->use_sandbox = $config['use_sandbox'];
         }
@@ -169,12 +178,24 @@ class FoxyClient
 
     public function getApiHome()
     {
-        return $this->use_sandbox ? static::SANDBOX_API_HOME : static::PRODUCTION_API_HOME;
+        if ($this->use_local) {
+            return static::LOCAL_API_HOME;
+        } elseif ($this->use_sandbox) {
+            return static::SANDBOX_API_HOME;
+        } else {
+            return static::PRODUCTION_API_HOME;
+        }
     }
 
     public function getAuthorizationEndpoint()
     {
-        return $this->use_sandbox ? static::SANDBOX_AUTHORIZATION_ENDPOINT : static::PRODUCTION_AUTHORIZATION_ENDPOINT;
+        if ($this->use_local) {
+            return static::LOCAL_AUTHORIZATION_ENDPOINT;
+        } elseif ($this->use_sandbox) {
+            return static::SANDBOX_AUTHORIZATION_ENDPOINT;
+        } else {
+            return static::PRODUCTION_AUTHORIZATION_ENDPOINT;
+        }
     }
 
     public function get($uri = "", $post = null)
@@ -391,7 +412,7 @@ class FoxyClient
 
     public function accessTokenNeedsRefreshing()
     {
-        return (!$this->access_token_expires || ($this->access_token_expires - 30) < time());
+        return (!$this->access_token_expires || (($this->access_token_expires - 30) < time()));
     }
 
     public function shouldRefreshToken()
@@ -471,14 +492,14 @@ class FoxyClient
     {
         if ($this->oauth_token_endpoint == '') {
             $this->include_auth_header = false;
-            $resp = $this->get();
+            $data = $this->get();
             if ($this->getLastStatusCode() == '200') {
                 $this->include_auth_header = true;
                 $this->oauth_token_endpoint = $this->getLink("token");
             }
+
         }
         return $this->oauth_token_endpoint;
     }
-
 
 }
