@@ -35,13 +35,9 @@ class FoxyClient
 {
     const PRODUCTION_API_HOME = 'https://api.foxycart.com';
     const SANDBOX_API_HOME = 'https://api-sandbox.foxycart.com';
-    // Internal Foxy Development Use Only
-    const LOCAL_API_HOME = 'https://api.foxy.dev';
     const LINK_RELATIONSHIPS_BASE_URI = 'https://api.foxycart.com/rels/';
     const PRODUCTION_AUTHORIZATION_ENDPOINT = 'https://my.foxycart.com/authorize';
     const SANDBOX_AUTHORIZATION_ENDPOINT = 'https://my-sandbox.foxycart.com/authorize';
-    // Internal Foxy Development Use Only
-    const LOCAL_AUTHORIZATION_ENDPOINT = 'https://my.foxy.dev:44300/authorize';
     const DEFAULT_ACCEPT_CONTENT_TYPE = 'application/hal+json';
 
     /**
@@ -68,45 +64,46 @@ class FoxyClient
     * Used by OAuth for getting a new Access Token
     */
     private $client_secret = '';
+
     private $guzzle;
     private $last_response = '';
     private $registered_link_relations = array('self', 'first', 'prev', 'next', 'last');
     private $links = array();
     private $use_sandbox = false;
-    // Internal Foxy Development Use Only
-    private $use_local = false;
     private $obtaining_updated_access_token = false;
     private $include_auth_header = true;
     private $accept_content_type = '';
+    private $api_home = '';
+    private $authorization_endpoint = '';
 
     public function __construct(\GuzzleHttp\Client $guzzle, array $config = array())
     {
         $this->guzzle = $guzzle;
+        $this->api_home = static::PRODUCTION_API_HOME;
+        $this->authorization_endpoint = static::PRODUCTION_AUTHORIZATION_ENDPOINT;
         $this->updateFromConfig($config);
     }
 
     public function updateFromConfig($config)
     {
-        if (array_key_exists('use_local', $config)) {
-            $this->use_local = $config['use_local'];
+        $valid_config_options = array(
+            'api_home',
+            'authorization_endpoint',
+            'use_sandbox',
+            'access_token',
+            'access_token_expires',
+            'refresh_token',
+            'client_id',
+            'client_secret'
+            );
+        foreach($valid_config_options as $valid_config_option) {
+            if (array_key_exists($valid_config_option, $config)) {
+                $this->{$valid_config_option} = $config[$valid_config_option];
+            }
         }
-        if (array_key_exists('use_sandbox', $config)) {
-            $this->use_sandbox = $config['use_sandbox'];
-        }
-        if (array_key_exists('access_token', $config)) {
-            $this->access_token = $config['access_token'];
-        }
-        if (array_key_exists('access_token_expires', $config)) {
-            $this->access_token_expires = $config['access_token_expires'];
-        }
-        if (array_key_exists('refresh_token', $config)) {
-            $this->refresh_token = $config['refresh_token'];
-        }
-        if (array_key_exists('client_id', $config)) {
-            $this->client_id = $config['client_id'];
-        }
-        if (array_key_exists('client_secret', $config)) {
-            $this->client_secret = $config['client_secret'];
+        if ($this->use_sandbox && (!array_key_exists('api_home', $config) || !array_key_exists('authorization_endpoint', $config))) {
+            $this->api_home = static::SANDBOX_API_HOME;
+            $this->authorization_endpoint = static::SANDBOX_AUTHORIZATION_ENDPOINT;
         }
     }
 
@@ -178,24 +175,12 @@ class FoxyClient
 
     public function getApiHome()
     {
-        if ($this->use_local) {
-            return static::LOCAL_API_HOME;
-        } elseif ($this->use_sandbox) {
-            return static::SANDBOX_API_HOME;
-        } else {
-            return static::PRODUCTION_API_HOME;
-        }
+        return $this->api_home;
     }
 
     public function getAuthorizationEndpoint()
     {
-        if ($this->use_local) {
-            return static::LOCAL_AUTHORIZATION_ENDPOINT;
-        } elseif ($this->use_sandbox) {
-            return static::SANDBOX_AUTHORIZATION_ENDPOINT;
-        } else {
-            return static::PRODUCTION_AUTHORIZATION_ENDPOINT;
-        }
+        return $this->authorization_endpoint;
     }
 
     public function get($uri = "", $post = null)
@@ -228,7 +213,7 @@ class FoxyClient
         return $this->go('HEAD', $uri, $post);
     }
 
-    private function go($method, $uri, $post)
+    private function go($method, $uri, $post, $is_retry = false)
     {
         if (!$this->obtaining_updated_access_token) {
             $this->refreshTokenAsNeeded();
@@ -259,9 +244,14 @@ class FoxyClient
             $data = $this->last_response->json();
             $this->saveLinks($data);
             if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
-                // we should have gotten a refresh token... looks like our access_token_expires was incorrect.
-                $this->access_token_expires = 0;
-                return $this->go($method, $uri, $post); // try again
+                if (!$is_retry) {
+                    // we should have gotten a refresh token... looks like our access_token_expires was incorrect
+                    // so we'll clear it out to force a refresh
+                    $this->access_token_expires = 0;
+                    return $this->go($method, $uri, $post, true); // try one more time
+                } else {
+                   array("error_description" => 'An error occurred attempting to update your access token. Please verify your refresh token and OAuth client credentials.');
+                }
             }
             return $data;
 
@@ -491,13 +481,14 @@ class FoxyClient
     public function getOAuthTokenEndpoint()
     {
         if ($this->oauth_token_endpoint == '') {
-            $this->include_auth_header = false;
+            $this->obtainingToken();
             $data = $this->get();
             if ($this->getLastStatusCode() == '200') {
-                $this->include_auth_header = true;
                 $this->oauth_token_endpoint = $this->getLink("token");
+            } else {
+                trigger_error('ERROR IN getOAuthTokenEndpoint: ' . $this->getLastStatusCode());
+                trigger_error(serialize($this->last_response->json()));
             }
-
         }
         return $this->oauth_token_endpoint;
     }
