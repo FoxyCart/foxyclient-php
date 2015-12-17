@@ -20,12 +20,14 @@ FoxyClient supports all HTTP methods for our Hypermedia API. It also automatical
 Along with the <a href="https://github.com/FoxyCart/foxyclient-php-example">example code</a>, we'll also be adding to the <a href="https://github.com/FoxyCart/foxyclient-php-playground">playground</a> for more examples of how to use the client. It currently demonstrates how to work with coupons: https://github.com/FoxyCart/foxyclient-php-playground
 
 ### Config Options
- * use_sandbox: Set to true to work with https://api-sandbox.foxycart.com. This is highly recomended when first getting familiar with the system.
+ * use_sandbox: Set to true to work with https://api-sandbox.foxycart.com. This is highly recomended when first getting familiar with the system (defaults to false).
  * client_id: Your OAuth Client id.
  * client_secret: Your OAuth Client Secret.
  * access_token: Your OAuth Acccess Token.
- * access_token_expires: A timestamp for when the access_token needs to be refreshed. You can be set via time() + expires_in.
+ * access_token_expires: A timestamp for when the access_token needs to be refreshed. If you happen to already have a stored token, you can set this here. It will be maintained via time() + expires_in.
  * refresh_token: OAuth Refresh Token.
+ * api_home: Used internally for Foxy testing.
+ * authorization_endpoint: Used internally for Foxy testing.
 
 ### HTTP methods
  * get($uri, $post = null)
