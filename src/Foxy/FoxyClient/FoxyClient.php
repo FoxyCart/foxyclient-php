@@ -238,6 +238,11 @@ class FoxyClient
         }
 
         try {
+            // special case for PATCHing a Downloadable File
+            if ($post !== null && array_key_exists('file', $post) && $method == 'PATCH') {
+                $method = 'POST';
+                $guzzle_args['headers']['X-HTTP-Method-Override'] = 'PATCH';
+            }
 
             $api_request = $this->guzzle->createRequest($method, $uri, $guzzle_args);
             $this->last_response = $this->guzzle->send($api_request);
@@ -387,11 +392,17 @@ class FoxyClient
     //Get Last Status Code
     public function getLastStatusCode()
     {
+        if ($this->last_response == '') {
+            return '';
+        }
         return $this->last_response->getStatusCode();
     }
     //Get Last Response Header
     public function getLastResponseHeader($header)
     {
+        if ($this->last_response == '') {
+            return '';
+        }
         return $this->last_response->getHeader($header);
     }
 
