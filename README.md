@@ -26,6 +26,7 @@ Along with the <a href="https://github.com/FoxyCart/foxyclient-php-example">exam
  * access_token: Your OAuth Acccess Token.
  * access_token_expires: A timestamp for when the access_token needs to be refreshed. If you happen to already have a stored token, you can set this here. It will be maintained via time() + expires_in.
  * refresh_token: OAuth Refresh Token.
+ * handle_exceptions: Defaults to true. Set to false to let Guzzle exceptions bubble up to your application so you can handle them directly.
  * api_home: Used internally for Foxy testing.
  * authorization_endpoint: Used internally for Foxy testing.
 
