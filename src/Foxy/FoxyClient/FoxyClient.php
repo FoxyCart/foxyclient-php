@@ -72,6 +72,7 @@ class FoxyClient
     private $use_sandbox = false;
     private $obtaining_updated_access_token = false;
     private $include_auth_header = true;
+    private $handle_exceptions = true;
     private $accept_content_type = '';
     private $api_home = '';
     private $authorization_endpoint = '';
@@ -94,7 +95,8 @@ class FoxyClient
             'access_token_expires',
             'refresh_token',
             'client_id',
-            'client_secret'
+            'client_secret',
+            'handle_exceptions'
             );
         foreach($valid_config_options as $valid_config_option) {
             if (array_key_exists($valid_config_option, $config)) {
@@ -237,38 +239,44 @@ class FoxyClient
             $guzzle_args['body'] = $post;
         }
 
-        try {
-            // special case for PATCHing a Downloadable File
-            if ($post !== null && array_key_exists('file', $post) && $method == 'PATCH') {
-                $method = 'POST';
-                $guzzle_args['headers']['X-HTTP-Method-Override'] = 'PATCH';
+        if (!$this->handle_exceptions) {
+            return $this->processRequest($method, $uri, $post, $guzzle_args);
+        } else {
+            try {
+                return $this->processRequest($method, $uri, $post, $guzzle_args);
+            //Catch Errors - http error
+            } catch (\GuzzleHttp\Exception\RequestException $e) {
+                return array("error_description" => $e->getMessage());
+            //Catch Errors - not JSON
+            } catch (\GuzzleHttp\Exception\ParseException $e) {
+                return array("error_description" => $e->getMessage());
             }
+        }
+    }
 
-            $api_request = $this->guzzle->createRequest($method, $uri, $guzzle_args);
-            $this->last_response = $this->guzzle->send($api_request);
-            $data = $this->last_response->json();
-            $this->saveLinks($data);
-            if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
-                if (!$is_retry) {
-                    // we should have gotten a refresh token... looks like our access_token_expires was incorrect
-                    // so we'll clear it out to force a refresh
-                    $this->access_token_expires = 0;
-                    return $this->go($method, $uri, $post, true); // try one more time
-                } else {
-                   array("error_description" => 'An error occurred attempting to update your access token. Please verify your refresh token and OAuth client credentials.');
-                }
-            }
-            return $data;
-
-        //Catch Errors - http error
-        } catch (\GuzzleHttp\Exception\RequestException $e) {
-            return array("error_description" => $e->getMessage());
-
-        //Catch Errors - not JSON
-        } catch (\GuzzleHttp\Exception\ParseException $e) {
-            return array("error_description" => $e->getMessage());
+    private function processRequest($method, $uri, $post, $guzzle_args)
+    {
+        // special case for PATCHing a Downloadable File
+        if ($post !== null && array_key_exists('file', $post) && $method == 'PATCH') {
+            $method = 'POST';
+            $guzzle_args['headers']['X-HTTP-Method-Override'] = 'PATCH';
         }
 
+        $api_request = $this->guzzle->createRequest($method, $uri, $guzzle_args);
+        $this->last_response = $this->guzzle->send($api_request);
+        $data = $this->last_response->json();
+        $this->saveLinks($data);
+        if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
+            if (!$is_retry) {
+                // we should have gotten a refresh token... looks like our access_token_expires was incorrect
+                // so we'll clear it out to force a refresh
+                $this->access_token_expires = 0;
+                return $this->go($method, $uri, $post, true); // try one more time
+            } else {
+               return array("error_description" => 'An error occurred attempting to update your access token. Please verify your refresh token and OAuth client credentials.');
+            }
+        }
+        return $data;
     }
 
     //Save Links to the Object For Easy Retrieval Later
