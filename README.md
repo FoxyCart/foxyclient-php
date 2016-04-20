@@ -42,6 +42,7 @@ Along with the <a href="https://github.com/FoxyCart/foxyclient-php-example">exam
 ### API Methods
  * getLink($link_rel_string): Used to get the href of a given link relationship such as "self" or "fx:store". It also supports the short version of just "store".
  * getLinks(): Returns an array of link relationships the client has seen so far in the rel => href format. Each request stores the links in the links array.
+ * clearLinks(): Clear saved links from previous API calls. Helpful for link relationships like "checkout_types" which can be returned from both a store resource and as a property helper.
  * getErrors($data): Given a response payload, it will normalize errors and return an array of them (or any empty array).
  * getLastStatusCode(): Returns the last HTTP status code.
  * getAuthorizationEndpoint(): The <a href="https://tools.ietf.org/html/rfc6749#section-4.1">Authorization Code Grant</a> server endpoint url. You'll need to forward users to this to let them grant your application access to their store or user.

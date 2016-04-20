@@ -279,6 +279,12 @@ class FoxyClient
         return $data;
     }
 
+    //Clear any saved links
+    public function clearLinks()
+    {
+        $this->links = array();
+    }
+
     //Save Links to the Object For Easy Retrieval Later
     public function saveLinks($data)
     {
