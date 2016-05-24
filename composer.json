@@ -4,6 +4,15 @@
     "type": "library",
     "homepage": "https://github.com/FoxyCart/foxyclient-php",
     "license": "MIT",
+    "keywords": ["foxy","foxycart","hypermedia"],
+    "authors": [
+        {
+            "name": "Luke Stokes",
+            "email": "luke.stokes@foxy.io",
+            "homepage": "http://www.foxy.io/",
+            "role": "Developer"
+        }
+    ],
     "require": {
         "guzzlehttp/guzzle": "~5.2",
         "guzzlehttp/cache-subscriber": "0.1.*@dev",
