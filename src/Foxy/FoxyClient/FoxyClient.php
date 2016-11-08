@@ -240,10 +240,10 @@ class FoxyClient
         }
 
         if (!$this->handle_exceptions) {
-            return $this->processRequest($method, $uri, $post, $guzzle_args);
+            return $this->processRequest($method, $uri, $post, $guzzle_args, $is_retry);
         } else {
             try {
-                return $this->processRequest($method, $uri, $post, $guzzle_args);
+                return $this->processRequest($method, $uri, $post, $guzzle_args, $is_retry);
             //Catch Errors - http error
             } catch (\GuzzleHttp\Exception\RequestException $e) {
                 return array("error_description" => $e->getMessage());
@@ -254,7 +254,7 @@ class FoxyClient
         }
     }
 
-    private function processRequest($method, $uri, $post, $guzzle_args)
+    private function processRequest($method, $uri, $post, $guzzle_args, $is_retry = false)
     {
         // special case for PATCHing a Downloadable File
         if ($post !== null && array_key_exists('file', $post) && $method == 'PATCH') {
@@ -512,7 +512,9 @@ class FoxyClient
                 $this->oauth_token_endpoint = $this->getLink("token");
             } else {
                 trigger_error('ERROR IN getOAuthTokenEndpoint: ' . $this->getLastStatusCode());
-                trigger_error(serialize($this->last_response->json()));
+                //trigger_error(serialize($this->last_response->json()));
+                //die or hard code the endpoint?
+                $this->oauth_token_endpoint = $this->api_home . '/token';
             }
         }
         return $this->oauth_token_endpoint;
