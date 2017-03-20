@@ -14,9 +14,8 @@
         }
     ],
     "require": {
-        "guzzlehttp/guzzle": "~5.2",
-        "guzzlehttp/cache-subscriber": "0.1.*@dev",
-        "php": ">=5.3.3"
+        "guzzlehttp/guzzle": "~6.2",
+        "php": ">=5.5"
     },
     "autoload": {
         "psr-0": {"Foxy\\FoxyClient": "src/"}

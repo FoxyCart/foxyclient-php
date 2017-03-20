@@ -236,7 +236,7 @@ class FoxyClient
         if ($method === "GET" && $post !== null) {
             $guzzle_args['query'] = $post;
         } elseif ($post !== null) {
-            $guzzle_args['body'] = $post;
+            $guzzle_args['form_params'] = $post;
         }
 
         if (!$this->handle_exceptions) {
@@ -262,9 +262,8 @@ class FoxyClient
             $guzzle_args['headers']['X-HTTP-Method-Override'] = 'PATCH';
         }
 
-        $api_request = $this->guzzle->createRequest($method, $uri, $guzzle_args);
-        $this->last_response = $this->guzzle->send($api_request);
-        $data = $this->last_response->json();
+        $this->last_response = $this->guzzle->request($method, $uri, $guzzle_args);
+        $data = json_decode($this->last_response->getBody()->getContents(),true);
         $this->saveLinks($data);
         if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
             if (!$is_retry) {
