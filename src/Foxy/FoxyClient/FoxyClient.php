@@ -190,6 +190,11 @@ class FoxyClient
         return $this->go('GET', $uri, $post);
     }
 
+    public function put($uri, $post = null)
+    {
+        return $this->go('PUT', $uri, $post);
+    }
+
     public function post($uri, $post = null)
     {
         return $this->go('POST', $uri, $post);
@@ -257,7 +262,7 @@ class FoxyClient
     private function processRequest($method, $uri, $post, $guzzle_args, $is_retry = false)
     {
         // special case for PATCHing a Downloadable File
-        if ($post !== null && array_key_exists('file', $post) && $method == 'PATCH') {
+        if ($post !== null && is_array($post) && array_key_exists('file', $post) && $method == 'PATCH') {
             $method = 'POST';
             $guzzle_args['headers']['X-HTTP-Method-Override'] = 'PATCH';
         }
