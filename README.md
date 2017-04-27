@@ -15,7 +15,11 @@ Once you're familiar with how it works, you can add it as a composer package to 
 
  * Add to your project
 
-`php composer.phar require foxycart/foxyclient:~1.0`
+`php composer.phar require foxycart/foxyclient:~1.1`
+
+If you need Guzzle 6 instead of Guzzle 5, use:
+
+`php composer.phar require foxycart/foxyclient:~2.1`
 
 ## Usage
 
