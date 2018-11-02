@@ -4,7 +4,7 @@ namespace Foxy\FoxyClient;
 
 /*
 
-The FoxyClient wraps Guzzle with some useful helpers for working with link relationships.
+The FoxyClient wraps Unirest with some useful helpers for working with link relationships.
 config:
     use_sandbox (boolean): set to true to connect to the API sandbox for testing.
     access_token (string): pass in your properly scoped OAuth access_token to be used as a Authentication Bearer HTTP header.
@@ -12,12 +12,12 @@ config:
 Examples:
 
 //Get Homepage
-$fc = new FoxyClient($guzzle);
+$fc = new FoxyClient();
 $result = $fc->get();
 die("<pre>" . print_r($result, 1) . "</pre>");
 
 //Get Authenticated Store
-$fc = new FoxyClient($guzzle, array(
+$fc = new FoxyClient(array(
         'client_id' => $client_id,
         'client_secret' => $client_secret,
         'refresh_token' => $refresh_token,
@@ -65,7 +65,6 @@ class FoxyClient
     */
     private $client_secret = '';
 
-    private $guzzle;
     private $last_response = '';
     private $registered_link_relations = array('self', 'first', 'prev', 'next', 'last');
     private $links = array();
@@ -77,9 +76,8 @@ class FoxyClient
     private $api_home = '';
     private $authorization_endpoint = '';
 
-    public function __construct(\GuzzleHttp\Client $guzzle, array $config = array())
+    public function __construct(array $config = array())
     {
-        $this->guzzle = $guzzle;
         $this->api_home = static::PRODUCTION_API_HOME;
         $this->authorization_endpoint = static::PRODUCTION_AUTHORIZATION_ENDPOINT;
         $this->updateFromConfig($config);
@@ -231,45 +229,25 @@ class FoxyClient
             $uri = $this->getApiHome();
         }
 
-        //Setup Guzzle Details
-        $guzzle_args = array(
-            'headers' => $this->getHeaders(),
-            'connect_timeout' => 30,
-        );
-
-        //Set Query or Body
-        if ($method === "GET" && $post !== null) {
-            $guzzle_args['query'] = $post;
-        } elseif ($post !== null) {
-            $guzzle_args['body'] = $post;
-        }
-
         if (!$this->handle_exceptions) {
-            return $this->processRequest($method, $uri, $post, $guzzle_args, $is_retry);
+            return $this->processRequest($method, $uri, $post, $is_retry);
         } else {
             try {
-                return $this->processRequest($method, $uri, $post, $guzzle_args, $is_retry);
-            //Catch Errors - http error
-            } catch (\GuzzleHttp\Exception\RequestException $e) {
-                return array("error_description" => $e->getMessage());
-            //Catch Errors - not JSON
-            } catch (\GuzzleHttp\Exception\ParseException $e) {
+                return $this->processRequest($method, $uri, $post, $is_retry);
+            } catch (\Unirest\Exception $e) {
                 return array("error_description" => $e->getMessage());
             }
         }
     }
 
-    private function processRequest($method, $uri, $post, $guzzle_args, $is_retry = false)
+    private function processRequest($method, $uri, $post, $is_retry = false)
     {
-        // special case for PATCHing a Downloadable File
-        if ($post !== null && is_array($post) && array_key_exists('file', $post) && $method == 'PATCH') {
-            $method = 'POST';
-            $guzzle_args['headers']['X-HTTP-Method-Override'] = 'PATCH';
-        }
 
-        $api_request = $this->guzzle->createRequest($method, $uri, $guzzle_args);
-        $this->last_response = $this->guzzle->send($api_request);
-        $data = $this->last_response->json();
+        $headers = $this->getHeaders();
+        \Unirest\Request::timeout(30);
+        //$post = \Unirest\Request\Body::json($post);
+        $this->last_response = \Unirest\Request::send($method, $uri, $post, $headers);
+        $data = json_decode($this->last_response->raw_body, true);
         $this->saveLinks($data);
         if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
             if (!$is_retry) {
@@ -414,15 +392,15 @@ class FoxyClient
         if ($this->last_response == '') {
             return '';
         }
-        return $this->last_response->getStatusCode();
+        return $this->last_response->code;
     }
     //Get Last Response Header
     public function getLastResponseHeader($header)
     {
-        if ($this->last_response == '') {
+        if ($this->last_response == '' || in_array($header, $this->last_response->headers)) {
             return '';
         }
-        return $this->last_response->getHeader($header);
+        return $this->last_response->headers[$header];
     }
 
     public function hasOAuthCredentialsForTokenRefresh()
