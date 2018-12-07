@@ -71,6 +71,7 @@ class FoxyClient
     private $use_sandbox = false;
     private $obtaining_updated_access_token = false;
     private $include_auth_header = true;
+    private $include_basic_auth_header = false;
     private $handle_exceptions = true;
     private $accept_content_type = '';
     private $api_home = '';
@@ -185,37 +186,37 @@ class FoxyClient
 
     public function get($uri = "", $post = null)
     {
-        return $this->go('GET', $uri, $post);
+        return $this->go(\Unirest\Method::GET, $uri, $post);
     }
 
     public function put($uri, $post = null)
     {
-        return $this->go('PUT', $uri, $post);
+        return $this->go(\Unirest\Method::PUT, $uri, $post);
     }
 
     public function post($uri, $post = null)
     {
-        return $this->go('POST', $uri, $post);
+        return $this->go(\Unirest\Method::POST, $uri, $post);
     }
 
     public function patch($uri, $post = null)
     {
-        return $this->go('PATCH', $uri, $post);
+        return $this->go(\Unirest\Method::PATCH, $uri, $post);
     }
 
     public function delete($uri, $post = null)
     {
-        return $this->go('DELETE', $uri, $post);
+        return $this->go(\Unirest\Method::DELETE, $uri, $post);
     }
 
     public function options($uri, $post = null)
     {
-        return $this->go('OPTIONS', $uri, $post);
+        return $this->go(\Unirest\Method::OPTIONS, $uri, $post);
     }
 
     public function head($uri, $post = null)
     {
-        return $this->go('HEAD', $uri, $post);
+        return $this->go(\Unirest\Method::HEAD, $uri, $post);
     }
 
     private function go($method, $uri, $post, $is_retry = false)
@@ -242,9 +243,29 @@ class FoxyClient
 
     private function processRequest($method, $uri, $post, $is_retry = false)
     {
-
         $headers = $this->getHeaders();
         \Unirest\Request::timeout(30);
+
+        if ($method !== \Unirest\Method::GET && $post !== null && is_array($post)) {
+            if (array_key_exists('file', $post)) {
+                $file = \Unirest\Request\Body::File($post['file']['tmp_name'], $post['file']['type'], $post['file']['name']);
+                $post['file'] = $file;
+                $headers['Content-Type'] = 'multipart/form-data';
+
+                // special case for PATCHing a Downloadable File
+                if ($method === \Unirest\Method::PATCH) {
+                    $method = \Unirest\Method::POST;
+                    $headers['X-HTTP-Method-Override'] = 'PATCH';
+                }
+            } else if ($this->obtaining_updated_access_token) {
+                $post = \Unirest\Request\Body::form($post);
+                $headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            } else {
+                $post = \Unirest\Request\Body::json($post);
+                $headers['Content-Type'] = 'application/json';
+            }
+        }
+
         //$post = \Unirest\Request\Body::json($post);
         $this->last_response = \Unirest\Request::send($method, $uri, $post, $headers);
         $data = json_decode($this->last_response->raw_body, true);
@@ -378,7 +399,9 @@ class FoxyClient
         $headers = array(
             'FOXY-API-VERSION' => 1
         );
-        if ($this->access_token && $this->include_auth_header) {
+        if ($this->include_basic_auth_header) {
+            $headers['Authorization'] = "Basic " . base64_encode($this->client_id . ":" . $this->client_secret);
+        } else if ($this->access_token && $this->include_auth_header) {
             $headers['Authorization'] = "Bearer " . $this->access_token;
         }
         $headers['Accept'] = $this->getAcceptContentType();
@@ -418,15 +441,17 @@ class FoxyClient
         return ($this->hasOAuthCredentialsForTokenRefresh() && $this->accessTokenNeedsRefreshing());
     }
 
-    public function obtainingToken()
+    public function obtainingToken($endpoint = false)
     {
         $this->obtaining_updated_access_token = true;
+        $this->include_basic_auth_header = ($endpoint) ? false : true;
         $this->include_auth_header = false;
     }
 
     public function obtainingTokenDone()
     {
         $this->obtaining_updated_access_token = false;
+        $this->include_basic_auth_header = false;
         $this->include_auth_header = true;
     }
 
@@ -435,12 +460,11 @@ class FoxyClient
         if ($this->shouldRefreshToken()) {
             $refresh_token_data = array(
                     'grant_type' => 'refresh_token',
-                    'refresh_token' => $this->refresh_token,
-                    'client_id' => $this->client_id,
-                    'client_secret' => $this->client_secret
+                    'refresh_token' => $this->refresh_token
             );
+            $token_endpoint = $this->getOAuthTokenEndpoint();
             $this->obtainingToken();
-            $data = $this->post($this->getOAuthTokenEndpoint(),$refresh_token_data);
+            $data = $this->post($token_endpoint,$refresh_token_data);
             $this->obtainingTokenDone();
             if ($this->getLastStatusCode() == '200') {
                 $this->access_token_expires = time() + $data['expires_in'];
@@ -453,12 +477,11 @@ class FoxyClient
     {
         $client_credentials_request_data = array(
                 'grant_type' => 'client_credentials',
-                'scope' => 'client_full_access',
-                'client_id' => $this->client_id,
-                'client_secret' => $this->client_secret
+                'scope' => 'client_full_access'
         );
+        $token_endpoint = $this->getOAuthTokenEndpoint();
         $this->obtainingToken();
-        $data = $this->post($this->getOAuthTokenEndpoint(),$client_credentials_request_data);
+        $data = $this->post($token_endpoint,$client_credentials_request_data);
         $this->obtainingTokenDone();
         if ($this->getLastStatusCode() == '200') {
             $this->access_token_expires = time() + $data['expires_in'];
@@ -471,12 +494,11 @@ class FoxyClient
     {
         $authorize_code_request_data = array(
                 'grant_type' => 'authorization_code',
-                'code' => $code,
-                'client_id' => $this->client_id,
-                'client_secret' => $this->client_secret
+                'code' => $code
         );
+        $token_endpoint = $this->getOAuthTokenEndpoint();
         $this->obtainingToken();
-        $data = $this->post($this->getOAuthTokenEndpoint(),$authorize_code_request_data);
+        $data = $this->post($token_endpoint,$authorize_code_request_data);
         $this->obtainingTokenDone();
         if ($this->getLastStatusCode() == '200') {
             $this->access_token_expires = time() + $data['expires_in'];
@@ -489,7 +511,7 @@ class FoxyClient
     public function getOAuthTokenEndpoint()
     {
         if ($this->oauth_token_endpoint == '') {
-            $this->obtainingToken();
+            $this->obtainingToken(true);
             $data = $this->get();
             if ($this->getLastStatusCode() == '200') {
                 $this->oauth_token_endpoint = $this->getLink("token");
@@ -499,6 +521,7 @@ class FoxyClient
                 //die or hard code the endpoint?
                 $this->oauth_token_endpoint = $this->api_home . '/token';
             }
+            $this->obtainingTokenDone();
         }
         return $this->oauth_token_endpoint;
     }
