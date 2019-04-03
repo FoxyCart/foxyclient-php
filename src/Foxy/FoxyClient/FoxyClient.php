@@ -251,10 +251,10 @@ class FoxyClient
                 return $this->processRequest($method, $uri, $post, $guzzle_args, $is_retry);
             //Catch Errors - http error
             } catch (\GuzzleHttp\Exception\RequestException $e) {
-                return array("error_description" => $e->getMessage());
+                return $this->handleException($e);
             //Catch Errors - not JSON
             } catch (\GuzzleHttp\Exception\ParseException $e) {
-                return array("error_description" => $e->getMessage());
+                return $this->handleException($e);
             }
         }
     }
@@ -282,6 +282,17 @@ class FoxyClient
             }
         }
         return $data;
+    }
+    
+    private function handleException(\Exception $e) 
+    {
+        $response = $e->getResponse();
+
+        return array(
+            "error_description" => $e->getMessage() ,
+            "error_code" => $response->getStatusCode(),
+            "error_contents" => (string) $response->getBody()->getContents()
+        );
     }
 
     //Clear any saved links
