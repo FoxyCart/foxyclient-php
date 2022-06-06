@@ -67,8 +67,8 @@ class FoxyClient
 
     private $guzzle;
     private $last_response = '';
-    private $registered_link_relations = array('self', 'first', 'prev', 'next', 'last');
-    private $links = array();
+    private $registered_link_relations = ['self', 'first', 'prev', 'next', 'last'];
+    private $links = [];
     private $use_sandbox = false;
     private $obtaining_updated_access_token = false;
     private $include_auth_header = true;
@@ -77,7 +77,7 @@ class FoxyClient
     private $api_home = '';
     private $authorization_endpoint = '';
 
-    public function __construct(\GuzzleHttp\Client $guzzle, array $config = array())
+    public function __construct(\GuzzleHttp\Client $guzzle, array $config = [])
     {
         $this->guzzle = $guzzle;
         $this->api_home = static::PRODUCTION_API_HOME;
@@ -87,7 +87,7 @@ class FoxyClient
 
     public function updateFromConfig($config)
     {
-        $valid_config_options = array(
+        $valid_config_options = [
             'api_home',
             'authorization_endpoint',
             'use_sandbox',
@@ -97,7 +97,7 @@ class FoxyClient
             'client_id',
             'client_secret',
             'handle_exceptions'
-            );
+        ];
         foreach($valid_config_options as $valid_config_option) {
             if (array_key_exists($valid_config_option, $config)) {
                 $this->{$valid_config_option} = $config[$valid_config_option];
@@ -111,13 +111,13 @@ class FoxyClient
 
     public function clearCredentials()
     {
-        $config = array(
+        $config = [
             'access_token' => '',
             'access_token_expires' => '',
             'refresh_token' => '',
             'client_id' => '',
             'client_secret' => ''
-        );
+        ];
         $this->updateFromConfig($config);
     }
 
@@ -232,10 +232,10 @@ class FoxyClient
         }
 
         //Setup Guzzle Details
-        $guzzle_args = array(
+        $guzzle_args = [
             'headers' => $this->getHeaders(),
             'connect_timeout' => 30,
-        );
+        ];
 
         //Set Query or Body
         if ($method === "GET" && $post !== null) {
@@ -251,10 +251,10 @@ class FoxyClient
                 return $this->processRequest($method, $uri, $post, $guzzle_args, $is_retry);
             //Catch Errors - http error
             } catch (\GuzzleHttp\Exception\RequestException $e) {
-                return array("error_description" => $e->getMessage());
+                return ["error_description" => $e->getMessage()];
             //Catch Errors - not JSON
-            } catch (\GuzzleHttp\Exception\ParseException $e) {
-                return array("error_description" => $e->getMessage());
+            } catch (JsonException $e) {
+                return ["error_description" => $e->getMessage()];
             }
         }
     }
@@ -269,6 +269,9 @@ class FoxyClient
 
         $this->last_response = $this->guzzle->request($method, $uri, $guzzle_args);
         $data = json_decode($this->last_response->getBody()->getContents(),true);
+        if ($data === null) {
+            throw new JsonException('Can\'t decode response body to JSON');
+        }
         $this->saveLinks($data);
         if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
             if (!$is_retry) {
@@ -277,7 +280,7 @@ class FoxyClient
                 $this->access_token_expires = 0;
                 return $this->go($method, $uri, $post, true); // try one more time
             } else {
-               return array("error_description" => 'An error occurred attempting to update your access token. Please verify your refresh token and OAuth client credentials.');
+               return ["error_description" => 'An error occurred attempting to update your access token. Please verify your refresh token and OAuth client credentials.'];
             }
         }
         return $data;
@@ -286,7 +289,7 @@ class FoxyClient
     //Clear any saved links
     public function clearLinks()
     {
-        $this->links = array();
+        $this->links = [];
     }
 
     //Save Links to the Object For Easy Retrieval Later
@@ -336,10 +339,10 @@ class FoxyClient
     // Get stored links (excluding link rel base uri)
     public function getLinks()
     {
-        $links = array();
+        $links = [];
         foreach($this->links as $rel => $href) {
             $simple_rel = $rel;
-            $base_uris = array("fx:", static::LINK_RELATIONSHIPS_BASE_URI);
+            $base_uris = ["fx:", static::LINK_RELATIONSHIPS_BASE_URI];
             foreach($base_uris as $base_uri) {
                 $pos = strpos($simple_rel, $base_uri);
                 if ($pos !== FALSE && ($simple_rel.'/' != $base_uri)) {
@@ -354,7 +357,7 @@ class FoxyClient
     //Return any errors that exist in the response data.
     public function getErrors($data)
     {
-        $errors = array();
+        $errors = [];
         if ($this->getLastStatusCode() >= 400) {
             if (isset($data['error_description'])) {
                 $errors[] = $data['error_description'];
@@ -396,9 +399,9 @@ class FoxyClient
     //Get headers for this call
     public function getHeaders()
     {
-        $headers = array(
+        $headers = [
             'FOXY-API-VERSION' => 1
-        );
+        ];
         if ($this->access_token && $this->include_auth_header) {
             $headers['Authorization'] = "Bearer " . $this->access_token;
         }
@@ -454,12 +457,12 @@ class FoxyClient
     public function refreshTokenAsNeeded()
     {
         if ($this->shouldRefreshToken()) {
-            $refresh_token_data = array(
+            $refresh_token_data = [
                     'grant_type' => 'refresh_token',
                     'refresh_token' => $this->refresh_token,
                     'client_id' => $this->client_id,
                     'client_secret' => $this->client_secret
-            );
+            ];
             $this->obtainingToken();
             $data = $this->post($this->getOAuthTokenEndpoint(),$refresh_token_data);
             $this->obtainingTokenDone();
@@ -472,12 +475,12 @@ class FoxyClient
 
     public function getAccessTokenFromClientCredentials()
     {
-        $client_credentials_request_data = array(
+        $client_credentials_request_data = [
                 'grant_type' => 'client_credentials',
                 'scope' => 'client_full_access',
                 'client_id' => $this->client_id,
                 'client_secret' => $this->client_secret
-        );
+        ];
         $this->obtainingToken();
         $data = $this->post($this->getOAuthTokenEndpoint(),$client_credentials_request_data);
         $this->obtainingTokenDone();
@@ -490,12 +493,12 @@ class FoxyClient
 
     public function getAccessTokenFromAuthorizationCode($code)
     {
-        $authorize_code_request_data = array(
+        $authorize_code_request_data = [
                 'grant_type' => 'authorization_code',
                 'code' => $code,
                 'client_id' => $this->client_id,
                 'client_secret' => $this->client_secret
-        );
+        ];
         $this->obtainingToken();
         $data = $this->post($this->getOAuthTokenEndpoint(),$authorize_code_request_data);
         $this->obtainingTokenDone();
