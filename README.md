@@ -17,6 +17,10 @@ Once you're familiar with how it works, you can add it as a composer package to 
 
 `php composer.phar require foxycart/foxyclient:~1.0`
 
+If you need Guzzle 6 instead of Guzzle 5, use:
+
+`php composer.phar require foxycart/foxyclient:~2.0`
+
 ## Usage
 
 As mentioned above, begin by getting familiar with <a href="https://github.com/FoxyCart/foxyclient-php-example">the example code</a>. The <a href="https://github.com/FoxyCart/foxyclient-php-example/blob/master/bootstrap.php">bootstrap.php file</a> in particular is useful for configuring FoxyClient within your application. Please note how it takes advantage of HTTP caching and CSRF protection which are important for the performance and security of your application.
