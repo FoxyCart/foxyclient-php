@@ -4,26 +4,28 @@ namespace Foxy\FoxyClient;
 
 /*
 
-The FoxyClient wraps Guzzle with some useful helpers for working with link relationships.
 config:
     use_sandbox (boolean): set to true to connect to the API sandbox for testing.
     access_token (string): pass in your properly scoped OAuth access_token to be used as a Authentication Bearer HTTP header.
 
 Examples:
 
+$psr17Factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+$psr18Client = new \Buzz\Client\Curl($psr17Factory);
+
 //Get Homepage
-$fc = new FoxyClient($guzzle);
+$fc = new FoxyClient($psr17Factory, $psr18Client);
 $result = $fc->get();
 die("<pre>" . print_r($result, 1) . "</pre>");
 
 //Get Authenticated Store
-$fc = new FoxyClient($guzzle, array(
+$fc = new FoxyClient($psr17Factory, $psr18Client, [
         'client_id' => $client_id,
         'client_secret' => $client_secret,
         'refresh_token' => $refresh_token,
         'access_token' => $access_token, // optional
         'access_token_expires' => $access_token_expires // optional
-    )
+    ]
 );
 $fc->get();
 $result = $fc->get($fc->getLink("fx:store"));
