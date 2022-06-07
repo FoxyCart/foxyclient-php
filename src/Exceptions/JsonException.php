@@ -1,5 +1,5 @@
 <?php
 
-namespace Foxy\FoxyClient;
+namespace Foxy\FoxyClient\Exceptions;
 
 class JsonException extends \Exception {}
