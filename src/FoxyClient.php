@@ -36,6 +36,7 @@ Credits: David Hollander of https://foxytools.com/ got this project going and is
 
 use Exception;
 use Foxy\FoxyClient\Exceptions\JsonException;
+use Foxy\FoxyClient\Exceptions\ResponseException;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -235,6 +236,23 @@ class FoxyClient
 
         try {
             return $this->processRequest($method, $uri, $post, $guzzle_args, $is_retry);
+        } catch (JsonException $e) {
+            return [
+                "error_description" => $e->getMessage(),
+                "error_code" => 400,
+                "error_contents" => $e->getResponse()->getBody()->getContents(),
+            ];
+        } catch (ResponseException $e) {
+            $response = $e->getResponse();
+            $responseContent = $response->getBody()->getContents();
+            $parsedResponseContent = json_decode($responseContent, true);
+
+            return [
+                "error_description" => $e->getMessage(),
+                "error_code" => $response->getStatusCode(),
+                "error_contents" => $responseContent,
+                "error_contents_parsed" => $parsedResponseContent,
+            ];
         } catch (ClientExceptionInterface $e) {
             return ["error_description" => $e->getMessage()];
         } catch (Exception  $e) {
@@ -425,12 +443,14 @@ class FoxyClient
         }
 
         $response = $this->client->sendRequest($request);
-
+        if ($response->getStatusCode() >= 400) {
+            throw new ResponseException('Error completing request', $request, $response);
+        }
         $this->last_response = $response;
         $data = json_decode($response->getBody()->getContents(), true);
 
         if ($data === null) {
-            throw new JsonException('Can\'t decode response body to JSON');
+            throw new JsonException('Error decoding response body', $request, $response);
         }
 
         $this->saveLinks($data);

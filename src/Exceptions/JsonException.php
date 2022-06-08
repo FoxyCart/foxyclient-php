@@ -2,4 +2,4 @@
 
 namespace Foxy\FoxyClient\Exceptions;
 
-class JsonException extends \Exception {}
+class JsonException extends ResponseException {}
