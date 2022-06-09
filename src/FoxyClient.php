@@ -247,6 +247,19 @@ class FoxyClient
             $responseContent = $response->getBody()->getContents();
             $parsedResponseContent = json_decode($responseContent, true);
 
+            if (!empty($parsedResponseContent)) {
+                if ($this->hasExpiredAccessTokenError($parsedResponseContent) && !$this->shouldRefreshToken()) {
+                    if (!$is_retry) {
+                        // we should have gotten a refresh token... looks like our access_token_expires was incorrect
+                        // so we'll clear it out to force a refresh
+                        $this->access_token_expires = 0;
+                        return $this->go($method, $uri, $post, true); // try one more time
+                    }
+
+                    return ["error_description" => 'An error occurred attempting to update your access token. Please verify your refresh token and OAuth client credentials.'];
+                }
+            }
+
             return [
                 "error_description" => $e->getMessage(),
                 "error_code" => $response->getStatusCode(),
@@ -415,8 +428,7 @@ class FoxyClient
         string $method,
         string $uri,
         ?array $post,
-        array $options,
-        bool $is_retry = false
+        array $options
     ): array {
         // special case for PATCHing a Downloadable File
         if (is_array($post) && array_key_exists('file', $post) && $method == 'PATCH') {
@@ -443,10 +455,12 @@ class FoxyClient
         }
 
         $response = $this->client->sendRequest($request);
+        $this->last_response = $response;
+
         if ($response->getStatusCode() >= 400) {
             throw new ResponseException('Error completing request', $request, $response);
         }
-        $this->last_response = $response;
+
         $data = json_decode($response->getBody()->getContents(), true);
 
         if ($data === null) {
@@ -454,17 +468,6 @@ class FoxyClient
         }
 
         $this->saveLinks($data);
-
-        if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
-            if (!$is_retry) {
-                // we should have gotten a refresh token... looks like our access_token_expires was incorrect
-                // so we'll clear it out to force a refresh
-                $this->access_token_expires = 0;
-                return $this->go($method, $uri, $post, true); // try one more time
-            }
-
-            return ["error_description" => 'An error occurred attempting to update your access token. Please verify your refresh token and OAuth client credentials.'];
-        }
 
         return $data;
     }
