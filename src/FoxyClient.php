@@ -39,8 +39,8 @@ use Foxy\FoxyClient\Exceptions\JsonException;
 use Foxy\FoxyClient\Exceptions\ResponseException;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestFactoryInterface;
 
 class FoxyClient
 {
@@ -86,7 +86,7 @@ class FoxyClient
      */
     private string $client_secret = '';
     private ClientInterface $client;
-    private ServerRequestFactoryInterface $requestFactory;
+    private RequestFactoryInterface $requestFactory;
     private ?ResponseInterface $last_response = null;
     private array $registered_link_relations = ['self', 'first', 'prev', 'next', 'last'];
     private array $links = [];
@@ -99,7 +99,7 @@ class FoxyClient
     private string $authorization_endpoint = '';
 
     public function __construct(
-        ServerRequestFactoryInterface $requestFactory,
+        RequestFactoryInterface $requestFactory,
         ClientInterface $client,
         array $config = []
     ) {
@@ -436,10 +436,12 @@ class FoxyClient
             $options['headers']['X-HTTP-Method-Override'] = 'PATCH';
         }
 
-        $request = $this->requestFactory->createServerRequest($method, $uri);
+        $request = $this->requestFactory->createRequest($method, $uri);
 
         if (!empty($options['query'])) {
-            $request = $request->withQueryParams($options['query']);
+            $uri = $request->getUri();
+            $uri = $uri->withQuery(http_build_query($options['query']));
+            $request = $request->withUri($uri);
         }
 
         if (isset($options['form_params'])) {
