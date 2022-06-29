@@ -463,15 +463,14 @@ class FoxyClient
             throw new ResponseException('Error completing request', $request, $response);
         }
 
-        $data = json_decode($response->getBody()->getContents(), true);
+        try {
+            $data = json_decode($response->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
+            $this->saveLinks($data);
 
-        if ($data === null) {
-            throw new JsonException('Error decoding response body', $request, $response);
+            return $data;
+        } catch (\JsonException $e) {
+            throw new JsonException($e->getMessage(), $request, $response);
         }
-
-        $this->saveLinks($data);
-
-        return $data;
     }
 
     public function saveLinks(array $data): void
