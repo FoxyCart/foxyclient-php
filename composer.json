@@ -14,11 +14,13 @@
         }
     ],
     "require": {
-        "guzzlehttp/guzzle": "~5.2",
-        "guzzlehttp/cache-subscriber": "0.1.*@dev",
-        "php": ">=5.3.3"
+        "php": ">=7.4",
+        "ext-json": "*",
+        "psr/http-message": "^1.0",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.0"
     },
     "autoload": {
-        "psr-0": {"Foxy\\FoxyClient": "src/"}
+        "psr-4": {"Foxy\\FoxyClient\\": "src/"}
     }
 }
