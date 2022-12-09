@@ -283,16 +283,22 @@ class FoxyClient
         }
         return $data;
     }
-    
-    private function handleException(\Exception $e) 
-    {
-        $response = $e->getResponse();
 
-        return array(
-            "error_description" => $e->getMessage() ,
-            "error_code" => $response->getStatusCode(),
-            "error_contents" => (string) $response->getBody()->getContents()
+    private function handleException(\Exception $e)
+    {
+        $error = array(
+            "error_description" => $e->getMessage()
         );
+
+        if ($e->hasResponse()) {
+            $response = $e->getResponse();
+            $error = array_merge($error, array(
+                "error_code" => $response->getStatusCode(),
+                "error_contents" => (string) $response->getBody()->getContents()
+            ));
+        }
+
+        return $error;
     }
 
     //Clear any saved links
