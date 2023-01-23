@@ -190,11 +190,6 @@ class FoxyClient
         return $this->go('GET', $uri, $post);
     }
 
-    public function put($uri, $post = null)
-    {
-        return $this->go('PUT', $uri, $post);
-    }
-
     public function post($uri, $post = null)
     {
         return $this->go('POST', $uri, $post);
@@ -241,7 +236,7 @@ class FoxyClient
         if ($method === "GET" && $post !== null) {
             $guzzle_args['query'] = $post;
         } elseif ($post !== null) {
-            $guzzle_args['body'] = $post;
+            $guzzle_args['form_params'] = $post;
         }
 
         if (!$this->handle_exceptions) {
@@ -262,14 +257,13 @@ class FoxyClient
     private function processRequest($method, $uri, $post, $guzzle_args, $is_retry = false)
     {
         // special case for PATCHing a Downloadable File
-        if ($post !== null && is_array($post) && array_key_exists('file', $post) && $method == 'PATCH') {
+        if ($post !== null && array_key_exists('file', $post) && $method == 'PATCH') {
             $method = 'POST';
             $guzzle_args['headers']['X-HTTP-Method-Override'] = 'PATCH';
         }
 
-        $api_request = $this->guzzle->createRequest($method, $uri, $guzzle_args);
-        $this->last_response = $this->guzzle->send($api_request);
-        $data = $this->last_response->json();
+        $this->last_response = $this->guzzle->request($method, $uri, $guzzle_args);
+        $data = json_decode($this->last_response->getBody()->getContents(),true);
         $this->saveLinks($data);
         if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
             if (!$is_retry) {
