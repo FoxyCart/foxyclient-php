@@ -236,7 +236,11 @@ class FoxyClient
         if ($method === "GET" && $post !== null) {
             $guzzle_args['query'] = $post;
         } elseif ($post !== null) {
-            $guzzle_args['form_params'] = $post;
+            if (is_array($post)) {
+                $guzzle_args['form_params'] = $post;
+            } else {
+                $guzzle_args['body'] = $post;
+            }
         }
 
         if (!$this->handle_exceptions) {
@@ -257,7 +261,7 @@ class FoxyClient
     private function processRequest($method, $uri, $post, $guzzle_args, $is_retry = false)
     {
         // special case for PATCHing a Downloadable File
-        if ($post !== null && array_key_exists('file', $post) && $method == 'PATCH') {
+        if ($post !== null && is_array($post) && array_key_exists('file', $post) && $method == 'PATCH') {
             $method = 'POST';
             $guzzle_args['headers']['X-HTTP-Method-Override'] = 'PATCH';
         }
