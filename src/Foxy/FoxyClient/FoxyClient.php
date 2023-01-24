@@ -200,6 +200,11 @@ class FoxyClient
         return $this->go('PATCH', $uri, $post);
     }
 
+    public function put($uri, $post = null)
+    {
+        return $this->go('PUT', $uri, $post);
+    }
+
     public function delete($uri, $post = null)
     {
         return $this->go('DELETE', $uri, $post);
