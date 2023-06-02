@@ -190,11 +190,6 @@ class FoxyClient
         return $this->go('GET', $uri, $post);
     }
 
-    public function put($uri, $post = null)
-    {
-        return $this->go('PUT', $uri, $post);
-    }
-
     public function post($uri, $post = null)
     {
         return $this->go('POST', $uri, $post);
@@ -203,6 +198,11 @@ class FoxyClient
     public function patch($uri, $post = null)
     {
         return $this->go('PATCH', $uri, $post);
+    }
+
+    public function put($uri, $post = null)
+    {
+        return $this->go('PUT', $uri, $post);
     }
 
     public function delete($uri, $post = null)
@@ -241,7 +241,11 @@ class FoxyClient
         if ($method === "GET" && $post !== null) {
             $guzzle_args['query'] = $post;
         } elseif ($post !== null) {
-            $guzzle_args['body'] = $post;
+            if (is_array($post)) {
+                $guzzle_args['form_params'] = $post;
+            } else {
+                $guzzle_args['body'] = $post;
+            }
         }
 
         if (!$this->handle_exceptions) {
@@ -251,10 +255,10 @@ class FoxyClient
                 return $this->processRequest($method, $uri, $post, $guzzle_args, $is_retry);
             //Catch Errors - http error
             } catch (\GuzzleHttp\Exception\RequestException $e) {
-                return array("error_description" => $e->getMessage());
+                return $this->handleException($e);
             //Catch Errors - not JSON
             } catch (\GuzzleHttp\Exception\ParseException $e) {
-                return array("error_description" => $e->getMessage());
+                return $this->handleException($e);
             }
         }
     }
@@ -267,9 +271,8 @@ class FoxyClient
             $guzzle_args['headers']['X-HTTP-Method-Override'] = 'PATCH';
         }
 
-        $api_request = $this->guzzle->createRequest($method, $uri, $guzzle_args);
-        $this->last_response = $this->guzzle->send($api_request);
-        $data = $this->last_response->json();
+        $this->last_response = $this->guzzle->request($method, $uri, $guzzle_args);
+        $data = json_decode($this->last_response->getBody()->getContents(),true);
         $this->saveLinks($data);
         if ($this->hasExpiredAccessTokenError($data) && !$this->shouldRefreshToken()) {
             if (!$is_retry) {
@@ -350,6 +353,24 @@ class FoxyClient
             $links[$simple_rel] = $href;
         }
         return $links;
+    }
+
+    private function handleException(\Exception $e)
+    {
+        $error = array(
+            "error_description" => $e->getMessage()
+        );
+
+        if ($e->hasResponse()) {
+            $response = $e->getResponse();
+            $error = array_merge($error, array(
+                "error_code" => $response->getStatusCode(),
+                "response" => (string)$response->getReasonPhrase(),
+                "error_contents" => (string) $response->getBody()->getContents()
+            ));
+        }
+
+        return $error;
     }
 
     //Return any errors that exist in the response data.
